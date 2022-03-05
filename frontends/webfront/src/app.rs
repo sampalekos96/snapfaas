@@ -71,7 +71,7 @@ impl App {
         let dbenv = Arc::new(dbenv);
         let default_db = Arc::new(dbenv.open_db(None).unwrap());
         let user_db = Arc::new(dbenv.create_db(Some("users"), lmdb::DatabaseFlags::empty()).unwrap());
-        let conn = r2d2::Pool::builder().max_size(10).build(SnapFaasManager { address: snapfaas_address }).expect("pool");
+        let conn = r2d2::Pool::builder().max_size(10).min_idle(Some(0)).build(SnapFaasManager { address: snapfaas_address }).expect("pool");
         App {
             conn,
             dbenv,
@@ -171,6 +171,9 @@ impl App {
             (POST) (/assignments) => {
                 self.start_assignment(request)
             },
+            (GET) (/get_lua) => {
+                self.get_lua(request)
+            },
             _ => Ok(Response::empty_404())
         ).unwrap_or_else(|e| e).with_additional_header("Access-Control-Allow-Origin", "*")
     }
@@ -185,6 +188,18 @@ impl App {
         let txn = self.dbenv.begin_ro_txn().unwrap();
         let github: Option<String> = txn.get(*self.user_db, &format!("github/for/user/{}", login).as_bytes()).ok().map(|l| String::from_utf8_lossy(l).to_string());
         Ok(Response::json(&User { login, github }))
+    }
+
+    fn get_lua(&self, request: &Request) -> Result<Response, Response> {
+        let mut body = Vec::new();
+        request.data().map(|mut d| d.read_to_end(&mut body));
+
+        let txn = self.dbenv.begin_ro_txn().unwrap();
+        let result = crate::lua::get_lua(&body, crate::lua::LuaTxn(&txn, &*self.default_db));
+        txn.commit().expect("commit");
+        result.as_ref().map(Response::json)
+              .map_err(|le|
+                       Response::json(&serde_json::json!({"error": format!("{}", le)})))
     }
 
     fn assignments(&self, request: &Request) -> Result<Response, Response> {

@@ -2,6 +2,7 @@ use clap::{App, Arg};
 use openssl::pkey::PKey;
 
 mod app;
+mod lua;
 
 fn main() -> Result<(), std::io::Error> {
     dotenv::dotenv().ok();

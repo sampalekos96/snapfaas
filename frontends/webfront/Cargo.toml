@@ -12,7 +12,6 @@ serde_json = "*"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 dotenv = "0.15.0"
 clap = "^2.33.0"
-#snapfaas = { path = "../../snapfaas" } 
 reqwest = { version = "*", features = [ "blocking", "json", "multipart" ] }
 github-types = "0.1.1"
 rouille = "3.5.0"
@@ -23,3 +22,5 @@ lmdb-rkv = "0.14.0"
 regex = "1.5.4"
 snapfaas = { path = "../../snapfaas" }
 r2d2 = "0.8.9"
+rlua = "0.19.1"
+bstr = "0.2.17"
