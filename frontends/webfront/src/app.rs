@@ -130,7 +130,7 @@ impl App {
 
 impl App {
     pub fn handle(&mut self, request: &Request) -> Response {
-        println!("{:?}", request);
+        let now = std::time::Instant::now();
         if request.method().to_uppercase().as_str() == "OPTIONS" {
             return Response::empty_204()
                 .with_additional_header("Access-Control-Allow-Origin", "*")
@@ -138,7 +138,7 @@ impl App {
                 .with_additional_header("Access-Control-Allow-Methods", "*");
             
         }
-        rouille::router!(request,
+        let r = rouille::router!(request,
             (GET) (/login/github) => {
                 Ok(Response::redirect_302(
                     format!("https://github.com/login/oauth/authorize?client_id={}&scope=repo:invites", self.gh_creds.client_id)))
@@ -171,11 +171,13 @@ impl App {
             (POST) (/assignments) => {
                 self.start_assignment(request)
             },
-            (GET) (/get_lua) => {
+            (GET) (/query) => {
                 self.get_lua(request)
             },
             _ => Ok(Response::empty_404())
-        ).unwrap_or_else(|e| e).with_additional_header("Access-Control-Allow-Origin", "*")
+        ).unwrap_or_else(|e| e).with_additional_header("Access-Control-Allow-Origin", "*");
+        eprintln!("{} {}, {:?}", request.method(), request.raw_url(), now.elapsed());
+        r
     }
 
     fn whoami(&self, request: &Request) -> Result<Response, Response> {

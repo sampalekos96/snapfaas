@@ -68,7 +68,7 @@ fn main() -> Result<(), std::io::Error> {
 
 
     let dbenv = lmdb::Environment::new()
-        .set_map_size(4096 * 1024 * 1024)
+        .set_map_size(4096 * 1024 * 1024 * 1000)
         .set_max_dbs(2)
         .open(&std::path::Path::new(matches.value_of("storage path").unwrap()))
         .unwrap();

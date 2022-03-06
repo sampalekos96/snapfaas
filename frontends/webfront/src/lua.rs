@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use lmdb::{Cursor, RoTransaction, Transaction};
 use rlua::prelude::*;
 
@@ -17,6 +18,15 @@ impl<'env> rlua::UserData for LuaTxn<'env> {
             }
         });
 
+        methods.add_method("get_json", |ctx, this, key: bstr::BString| {
+            let r = Ok(this.0.get(*this.1, &key.as_slice()).ok()
+                .and_then(|val| serde_json::from_slice(val).ok())
+                .map(|val| json_val_to_lua_val(val, ctx))
+                .and_then(|r: LuaValue| r.to_lua(ctx).ok())
+                .unwrap_or(LuaValue::Nil));
+            r
+        });
+
         methods.add_method("cursor", |ctx, this, key: bstr::BString| {
             struct It<'txn>(lmdb::Iter<'txn>);
             unsafe impl<'a> Send for It<'a> {} // TODO, this is annoying because we _don't_ use across threads
@@ -25,10 +35,9 @@ impl<'env> rlua::UserData for LuaTxn<'env> {
                     let mut it = It(it);
                     ctx.create_function_mut(move |ctx, _: ()| {
                         match it.0.next() {
-                            Some(Ok((key, val))) => {
-                                let k: &bstr::BStr = key.into();
-                                let v: &bstr::BStr = val.into();
-                                (k, v).to_lua_multi(ctx)
+                            Some(Ok((key, _))) => {
+                                let k: bstr::BString = key.into();
+                                (k, LuaValue::Nil).to_lua_multi(ctx)
                             },
                             _ => LuaValue::Nil.to_lua_multi(ctx)
                         }
@@ -40,6 +49,17 @@ impl<'env> rlua::UserData for LuaTxn<'env> {
             }
         });
     }
+}
+
+fn json_val_to_lua_val<'a>(input: serde_json::Value, ctx: LuaContext<'a>) -> LuaValue<'a> {
+    match input {
+        serde_json::Value::Null => Ok(LuaValue::Nil),
+        serde_json::Value::Bool(b) => Ok(LuaValue::Boolean(b)),
+        serde_json::Value::Number(i) => i.as_f64().to_lua(ctx),
+        serde_json::Value::String(s) => s.to_lua(ctx),
+        serde_json::Value::Array(a) => a.iter().map(|e| json_val_to_lua_val(e.clone(), ctx)).collect::<Vec<LuaValue<'a>>>().to_lua(ctx),
+        serde_json::Value::Object(a) => a.iter().map(|(k,v)| (k.clone(), json_val_to_lua_val(v.clone(), ctx))).collect::<BTreeMap<String, LuaValue<'a>>>().to_lua(ctx),
+    }.unwrap_or(LuaValue::Nil)
 }
 
 fn lua_val_to_json_val(input: LuaValue) -> serde_json::Value {
@@ -69,12 +89,18 @@ fn lua_val_to_json_val(input: LuaValue) -> serde_json::Value {
 
 pub(crate) fn get_lua<'env>(query: &Vec<u8>, txn: LuaTxn<'env>) -> Result<serde_json::Value, LuaError> {
     let lua = Lua::new();
+    lua.set_hook(LuaHookTriggers {
+            every_nth_instruction: Some(100000), ..Default::default()
+    }, |_lua_context, debug| {
+            Err(LuaError::RuntimeError(String::from("Too long")))
+            //println!("1");
+            //Ok(())
+    });
+    lua.set_memory_limit(Some(1024 * 1024));
     let results = lua.context(move |context| {
         context.scope(|scope| {
             context.globals().set("db", scope.create_nonstatic_userdata(txn)?)?;
             Ok(lua_val_to_json_val(context.load(query).eval()?))
-            //let result: LuaTable = context.load(query).eval()?;
-            //Ok(result.sequence_values().filter_map(Result::ok).collect())
         })
     })?;
     Ok(serde_json::json!({
