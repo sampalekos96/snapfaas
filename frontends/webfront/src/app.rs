@@ -148,6 +148,9 @@ impl App {
             
         }
         rouille::router!(request,
+            (GET) (/foo/{bar: String}) => {
+                Ok(Response::json(&bar))
+            },
             (GET) (/login/github) => {
                 Ok(Response::redirect_302(
                     format!("https://github.com/login/oauth/authorize?client_id={}&scope=repo:invites", self.gh_creds.client_id)))
@@ -455,7 +458,12 @@ impl App {
         struct AuthResponse {
             access_token: String,
         }
-        let t: AuthResponse = uat.json().map_err(|_| Response::empty_400())?;
+        let t: AuthResponse = uat.json().map_err(|e| {
+            println!("Github Auth Response Error {:?}", e);
+            let mut r = Response::text(e.to_string());
+            r.status_code = 500;
+            r
+        })?;
         Ok(Response::html(format!(include_str!("authenticated_github.html"), token=t.access_token, base_url=self.base_url)))
     }
 
