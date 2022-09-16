@@ -88,7 +88,7 @@ pub enum Error {
     ProcessSpawn(std::io::Error),
     Rpc(prost::DecodeError),
     VsockListen(std::io::Error),
-    VsockWrite(std::io::Error),
+    VsockWrite(std::io::Error, usize),
     VsockRead(std::io::Error),
     HttpReq(reqwest::Error),
     AuthTokenInvalid,
@@ -320,8 +320,8 @@ impl Vm {
 
     fn send_into_vm(&mut self, sys_req: Vec<u8>) -> Result<(), Error> {
         let mut conn = &self.handle.as_ref().unwrap().conn;
-        conn.write_all(&(sys_req.len() as u32).to_be_bytes()).map_err(|e| Error::VsockWrite(e))?;
-        conn.write_all(sys_req.as_ref()).map_err(|e| Error::VsockWrite(e))
+        conn.write_all(&(sys_req.len() as u32).to_be_bytes()).map_err(|e| Error::VsockWrite(e, 4))?;
+        conn.write_all(sys_req.as_ref()).map_err(|e| Error::VsockWrite(e, sys_req.len()))
     }
 
     /// Send request to vm and wait for its response

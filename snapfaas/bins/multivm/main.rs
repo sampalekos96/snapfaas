@@ -83,7 +83,18 @@ fn main() {
             // Return when a VM acquisition succeeds or fails
             // but before a VM launches (if it is newly allocated)
             // and execute the request.
-            request_sender.send(Message::Request((request, response_tx, timestamps))).expect("Failed to send request");
+            for _ in 0..5 {
+                let (tx, rx) = mpsc::channel();
+                request_sender.send(Message::Request((request.clone(), tx, timestamps.clone()))).expect("Failed to send request");
+                if let Ok(response) = rx.recv() {
+                    if response.status == snapfaas::request::RequestStatus::ProcessRequestFailed {
+                        warn!("Processsing request, retrying {:?}", &request);
+                    } else {
+                        response_tx.send(response).expect("Failed to send response");
+                        break;
+                    }
+                }
+            }
         }
     }
 }

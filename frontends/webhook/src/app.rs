@@ -113,6 +113,7 @@ impl App {
                             request::RequestStatus::ResourceExhausted => Err(StatusCode::TOO_MANY_REQUESTS),
                             request::RequestStatus::FunctionNotExist | request::RequestStatus::Dropped => Err(StatusCode::BAD_REQUEST),
                             request::RequestStatus::LaunchFailed => Err(StatusCode::INTERNAL_SERVER_ERROR),
+                            request::RequestStatus::ProcessRequestFailed => Err(StatusCode::INTERNAL_SERVER_ERROR),
                             request::RequestStatus::SentToVM(response) => Ok(Bytes::from(response)),
                         }
                     },
