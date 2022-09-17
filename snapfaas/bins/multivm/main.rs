@@ -93,10 +93,14 @@ fn main() {
                             warn!("Processsing request, retrying {:?}", &request);
                         } else {
                             response_tx.send(response).expect("Failed to send response");
-                            break;
+                            return;
                         }
                     }
                 }
+                let response = snapfaas::request::Response {
+                    status: snapfaas::request::RequestStatus::ProcessRequestFailed
+                };
+                response_tx.send(response).expect("Failed to send response");
             });
         }
     }
