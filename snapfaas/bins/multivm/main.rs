@@ -19,7 +19,7 @@ use snapfaas::worker::Worker;
 
 use std::sync::{mpsc, Arc, Mutex};
 use std::sync::mpsc::Sender;
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, self};
 
 fn main() {
     env_logger::init();
@@ -80,21 +80,24 @@ fn main() {
         let gateway = gateway::HTTPGateway::listen(l);
 
         for (request, response_tx, timestamps) in gateway {
-            // Return when a VM acquisition succeeds or fails
-            // but before a VM launches (if it is newly allocated)
-            // and execute the request.
-            for _ in 0..5 {
-                let (tx, rx) = mpsc::channel();
-                request_sender.send(Message::Request((request.clone(), tx, timestamps.clone()))).expect("Failed to send request");
-                if let Ok(response) = rx.recv() {
-                    if response.status == snapfaas::request::RequestStatus::ProcessRequestFailed {
-                        warn!("Processsing request, retrying {:?}", &request);
-                    } else {
-                        response_tx.send(response).expect("Failed to send response");
-                        break;
+            let request_sender = request_sender.clone();
+            thread::spawn(move || {
+                // Return when a VM acquisition succeeds or fails
+                // but before a VM launches (if it is newly allocated)
+                // and execute the request.
+                for _ in 0..5 {
+                    let (tx, rx) = mpsc::channel();
+                    request_sender.send(Message::Request((request.clone(), tx, timestamps.clone()))).expect("Failed to send request");
+                    if let Ok(response) = rx.recv() {
+                        if response.status == snapfaas::request::RequestStatus::ProcessRequestFailed {
+                            warn!("Processsing request, retrying {:?}", &request);
+                        } else {
+                            response_tx.send(response).expect("Failed to send response");
+                            break;
+                        }
                     }
                 }
-            }
+            });
         }
     }
 }
