@@ -1,6 +1,6 @@
 //! Host-side VM handle that transfer data in and out of the VM through VSOCK socket and
 //! implements syscall API
-use std::env;
+use std::{env, thread};
 use std::net::Shutdown;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::Stdio;
@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use crate::configs::FunctionConfig;
 use crate::message::Message;
-use crate::{blobstore, syscalls};
+use crate::{blobstore, syscalls, request};
 use crate::request::Request;
 use crate::labeled_fs::{self, DBENV};
 
@@ -386,18 +386,32 @@ impl Vm {
     fn send_req(&self, invoke: syscalls::Invoke) -> bool {
         use time::precise_time_ns;
         if let Some(invoke_handle) = self.handle.as_ref().and_then(|h| h.invoke_handle.as_ref()) {
-            let (tx, _) = mpsc::channel();
-            let req = Request {
-                function: invoke.function,
-                payload: serde_json::from_str(invoke.payload.as_str()).expect("json"),
-            };
-            use crate::metrics::RequestTimestamps;
-            let timestamps = RequestTimestamps {
-                at_vmm: precise_time_ns(),
-                request: req.clone(),
-                ..Default::default()
-            };
-            invoke_handle.send(Message::Request((req, tx, timestamps))).is_ok()
+            let invoke_handle = invoke_handle.clone();
+            thread::spawn(move || {
+                let req = Request {
+                    function: invoke.function,
+                    payload: serde_json::from_str(invoke.payload.as_str()).expect("json"),
+                };
+                for _ in 0..5 {
+                    use crate::metrics::RequestTimestamps;
+                    let timestamps = RequestTimestamps {
+                        at_vmm: precise_time_ns(),
+                        request: req.clone(),
+                        ..Default::default()
+                    };
+
+                    let (tx, rx) = mpsc::channel();
+                    if invoke_handle.send(Message::Request((req.clone(), tx, timestamps))).is_err() {
+                        return;
+                    }
+
+                    if let Ok(request::Response { status: request::RequestStatus::SentToVM(_) }) = rx.recv() {
+                        return
+                    }
+                }
+
+            });
+            true
         } else {
             debug!("No invoke handle, ignoring invoke syscall. {:?}", invoke);
             false
