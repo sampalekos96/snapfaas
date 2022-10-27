@@ -77,6 +77,9 @@ impl VmmWrapper {
                               action: VmmAction,
                               ret_receiver: oneshot::Receiver<VmmRequestOutcome>)
         -> Result<VmmData, VmmError> {
+
+        println!("Action: {:?}", action);
+
         self.send_vmm_action(action)?;
         self.recv_vmm_action_ret(ret_receiver)
     }

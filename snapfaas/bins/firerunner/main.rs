@@ -22,6 +22,7 @@ use clap::{App, Arg};
 use snapfaas::firecracker_wrapper::VmmWrapper;
 
 fn main() {
+
     let mut ts_vec = Vec::with_capacity(10);
     ts_vec.push(Instant::now());
     let cmd_arguments = App::new("firecracker")
@@ -287,6 +288,8 @@ fn main() {
         diff: MemoryFileOption { copy: copy_diff, odirect: odirect_diff},
         load_ws,
     };
+
+
     // Create vmm thread
     let mut vmm = match VmmWrapper::new(instance_id.clone(), config) {
         Ok(vmm) => vmm,
@@ -295,6 +298,8 @@ fn main() {
             std::process::exit(1);
         }
     };
+
+    //println!("After the VmmWrapper");
 
     // Configure vm through vmm thread
     // If any of the configuration actions fail, just exits the process with
@@ -308,27 +313,29 @@ fn main() {
     };
 
     if let Err(e) = vmm.set_configuration(machine_config) {
-        eprintln!("Vmm failed to set configuration due to: {:?}", e);
+        println!("Vmm failed to set configuration due to: {:?}", e);
         std::process::exit(1);
     }
 
     if !from_snapshot {
+
         let boot_config = BootSourceConfig {
             kernel_image_path: kernel.to_str().expect("kernel path None").to_string(),
             boot_args: Some(kargs),
         };
 
         if let Err(e) = vmm.set_boot_source(boot_config) {
-            eprintln!("Vmm failed to set boot source due to: {:?}", e);
+            println!("Vmm failed to set boot source due to: {:?}", e);
             std::process::exit(1);
         }
+
     }
 
     let block_config = BlockDeviceConfig {
         drive_id: String::from("rootfs"),
         path_on_host: rootfs,
         is_root_device: true,
-        is_read_only: true,
+        is_read_only: false,
         partuuid: None,
         rate_limiter: None,
         odirect: odirect_rootfs,
@@ -344,7 +351,7 @@ fn main() {
             drive_id: String::from("appfs"),
             path_on_host: appfs,
             is_root_device: false,
-            is_read_only: true,
+            is_read_only: false,
             partuuid: None,
             rate_limiter: None,
                 odirect: odirect_appfs,
@@ -387,6 +394,8 @@ fn main() {
  
     ts_vec.push(Instant::now());
     //TODO: Optionally add a logger
+    
+    println!("Before the launch of the VM");
 
     // Launch vm
     if let Err(e) = vmm.start_instance() {
@@ -420,6 +429,8 @@ fn main() {
     println!("FR: Parse JSON: {} us\nFR: Preconfigure VM: {} us",
              parse_time,
              ts_vec[3].duration_since(ts_vec[0]).as_micros() - parse_time);
+    println!("Prin tin join_vmm");
     vmm.join_vmm();
+    println!("Meta tin join_vmm");
     std::process::exit(0);
 }

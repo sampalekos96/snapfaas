@@ -221,18 +221,23 @@ fn main() {
     let allow_network = cmd_arguments.is_present("enable network");
 
     // Launch a vm based on the FunctionConfig value
+    println!("Prin to vm launch block");
     let t1 = Instant::now();
     let mut vm =  Vm::new(id, firerunner, "myapp".to_string(), vm_app_config, allow_network);
     let vm_listener_path = format!("worker-{}.sock_1234", CID);
     let _ = std::fs::remove_file(&vm_listener_path);
     let vm_listener = UnixListener::bind(vm_listener_path).expect("Failed to bind to unix listener");
     let force_exit = cmd_arguments.is_present("force_exit");
+    println!("Prin tin vm launch");
     if let Err(e) = vm.launch(None, vm_listener, CID, force_exit, Some(odirect)) {
+        println!("unable to launch the VM: {:?}", e);
         log::error!("unable to launch the VM: {:?}", e);
         snapfaas::unlink_unix_sockets();
     }
+    println!("Meta tin vm launch");
     let t2 = Instant::now();
-
+    
+    println!("VM ready in: {} us", t2.duration_since(t1).as_micros());
     log::debug!("VM ready in: {} us", t2.duration_since(t1).as_micros());
 
     // create a vector of Request values from stdin
@@ -264,6 +269,7 @@ fn main() {
                 let t2 = Instant::now();
                 println!("request returned in: {} us", t2.duration_since(t1).as_micros());
                 log::debug!("response: {:?}", rsp);
+                println!("response: {:?}", rsp);
                 num_rsp+=1;
             }
             Err(e) => {

@@ -256,16 +256,23 @@ impl Vm {
         }
 
         let runtime = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+
         let (conn, vm_process) = runtime.block_on(async {
             debug!("args: {:?}", args);
+            //println!("args: {:?}", args);
+            
+            println!("Prin tin vm_process firerunner");
+
             let mut vm_process = Command::new(&self.firerunner).args(args).kill_on_drop(true)
                 .stdin(Stdio::null())
                 .stderr(Stdio::piped())
                 .spawn()
                 .map_err(|e| Error::ProcessSpawn(e))?;
 
+            println!("Meta tin vm_process firerunner");
+
             if force_exit {
-                let output = vm_process .wait_with_output().await
+                let output = vm_process.wait_with_output().await
                     .expect("failed to wait on child");
                 let mut status = 0;
                 if !output.status.success() {
@@ -276,23 +283,38 @@ impl Vm {
                 std::process::exit(status);
             }
 
+            println!("Prin to vm_listener");
+
             let vm_listener = tokio::net::UnixListener::from_std(vm_listener).expect("convert from UnixListener std");
+
+            println!("Prin tin tokio::select");
+
             let conn = tokio::select! {
                 res = vm_listener.accept() => {
+                    println!("Bika 1o branch");
                     res.unwrap().0.into_std().unwrap()
                 },
                 _ = vm_process.wait() => {
+                    println!("Bika 2o branch");
                     crate::unlink_unix_sockets();
                     std::process::exit(1);
                 }
             };
+
+            println!("Prin tin set_nonblocking");
+
             conn.set_nonblocking(false).map_err(|e| Error::VsockListen(e))?;
+
+            println!("Meta tin set_nonblocking");
+
             let x: Result<_, Error> = Ok((conn, vm_process));
             x
         })?;
 
+        println!("Vgika apo runtime.block_on");
+
         let rest_client = reqwest::blocking::Client::new();
-        
+
         let handle = VmHandle {
             conn,
             rest_client,
@@ -301,6 +323,8 @@ impl Vm {
         };
 
         self.handle = Some(handle);
+
+        println!("Pira Vm handle");
 
         Ok(())
     }
