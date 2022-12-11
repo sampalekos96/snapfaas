@@ -1,22 +1,11 @@
 allow_network: true
 firerunner_path: "./firerunner"
-kernel_path: "../../resources/images/vmlinux-4.20.0"
-kernel_args: "console=ttyS0"
+kernel_path: "/home/pi/preview_vmlinux.bin"
+kernel_args: "reboot=k panic=1 pci=off"
 runtimefs_dir: "../../../snapfaas-images/rootfs/snapfaas/"
 appfs_dir: "../../../snapfaas-images/appfs/python3/"
 snapshot_dir: "../../resources/images/snapshot/"
 functions:
-  hello:
-    network: true
-    runtimefs: "./pythonfs.ext4"
-    appfs: "./hello/output.ext2"
-    vcpus: 1
-    memory: 512
-    concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/hello/"
-    copy_base: true
-    copy_diff: true
-    load_ws: true
   sentiment-analysis:
     network: true
     runtimefs: "./pythonfs.ext4"
@@ -24,10 +13,10 @@ functions:
     vcpus: 1
     memory: 512 
     concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/sentiment-analysis/"
+    load_dir: "./complete_base/,./diff/sentiment_analysis/"
     copy_base: true
     copy_diff: true
-    load_ws: false #not working
+    load_ws: true #not working
   thumbnail:
     network: true
     runtimefs: "./pythonfs.ext4"
@@ -35,7 +24,7 @@ functions:
     vcpus: 1
     memory: 512 
     concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/thumbnail/"
+    load_dir: "./complete_base/,./diff/thumbnail/"
     copy_base: true
     copy_diff: true
     load_ws: true 
@@ -46,10 +35,10 @@ functions:
     vcpus: 1
     memory: 512
     concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/audio-fingerprint/"
-    copy_base: false
-    copy_diff: false
-    load_ws: false #not working 
+    load_dir: "./complete_base/,./diff/audio-fingerprint/"
+    copy_base: true
+    copy_diff: true
+    load_ws: true #not working 
   image-enhance:
     network: true
     runtimefs: "./pythonfs.ext4"
@@ -57,7 +46,7 @@ functions:
     vcpus: 1
     memory: 512 
     concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/image-enhance/"
+    load_dir: "./complete_base/,./diff/image-enhance/"
     copy_base: true
     copy_diff: true
     load_ws: true
@@ -68,7 +57,7 @@ functions:
     vcpus: 1
     memory: 512
     concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/ocr/"
+    load_dir: "./complete_base/,./diff/ocr/"
     copy_base: true
     copy_diff: true
     load_ws: true
@@ -79,7 +68,7 @@ functions:
     vcpus: 1
     memory: 512 
     concurrency_limit: 600
-    load_dir: "./base/python_base/,./diff/lorem/"
+    load_dir: "./complete_base/,./diff/lorem/"
     copy_base: true
     copy_diff: true
     load_ws: true
